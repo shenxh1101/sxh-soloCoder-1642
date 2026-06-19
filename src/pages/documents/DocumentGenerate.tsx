@@ -27,7 +27,7 @@ export default function DocumentGenerate() {
   const [searchParams] = useSearchParams()
   const urlTemplateId = searchParams.get('templateId')
 
-  const { templates, generateDocument, updateDocument } = useDocumentStore()
+  const { templates, generateDocument } = useDocumentStore()
   const cases = useCaseStore((s) => s.cases)
   const getClient = useClientStore((s) => s.getClient)
   const addToast = useToastStore((s) => s.addToast)
@@ -46,15 +46,8 @@ export default function DocumentGenerate() {
 
   const handleGenerate = () => {
     if (!selectedTemplateId || !selectedCaseId) return
-    const selectedCase = cases.find((c) => c.id === selectedCaseId)
     const newDoc = generateDocument(selectedTemplateId, selectedCaseId)
-    if (selectedCase) {
-      updateDocument(newDoc.id, {
-        clientId: selectedCase.clientId,
-        title: `${selectedTemplate?.name || '文书'}-${selectedCase.cause}`,
-      })
-    }
-    addToast('文书生成成功')
+    addToast('文书生成成功', 'success')
     navigate(`/documents/edit/${newDoc.id}`)
   }
 

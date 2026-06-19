@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar } from 'lucide-react'
+import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar, FilePlus, ArrowUp, ArrowDown } from 'lucide-react'
 import { useCaseStore } from '@/stores/caseStore'
 import { useClientStore } from '@/stores/clientStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -25,7 +25,7 @@ export default function CaseDetail() {
   const caseData = id ? getCase(id) : undefined
 
   const { clients, lawyers, getClient } = useClientStore()
-  const { documents } = useDocumentStore()
+  const { documents, generateDocument } = useDocumentStore()
   const { schedules } = useScheduleStore()
   const addToast = useToastStore((s) => s.addToast)
 
@@ -98,6 +98,7 @@ export default function CaseDetail() {
       order: caseData.stages.length + 1,
     }
     addStage(caseData.id, newStage)
+    updateCase(caseData.id, { currentStage: newStage.name })
     setStageModal(false)
     addToast('阶段已添加', 'success')
   }
@@ -109,6 +110,9 @@ export default function CaseDetail() {
       startTime: stageForm.startTime,
       notes: stageForm.notes,
     })
+    if (editStageModal.name === caseData.currentStage) {
+      updateCase(caseData.id, { currentStage: stageForm.name })
+    }
     setEditStageModal(null)
     addToast('阶段已更新', 'success')
   }
@@ -116,12 +120,56 @@ export default function CaseDetail() {
   const handleDeleteStage = () => {
     if (!deleteStageTarget) return
     deleteStage(caseData.id, deleteStageTarget.id)
+    if (deleteStageTarget.name === caseData.currentStage) {
+      const remainingStages = caseData.stages.filter(s => s.id !== deleteStageTarget.id)
+      const newCurrent = remainingStages.length > 0 ? remainingStages[remainingStages.length - 1].name : ''
+      updateCase(caseData.id, { currentStage: newCurrent })
+    }
     setDeleteStageTarget(null)
     addToast('阶段已删除', 'success')
   }
 
+  const moveStageUp = (idx: number) => {
+    if (idx <= 0) return
+    const newStages = [...caseData.stages]
+    const temp = newStages[idx].order
+    newStages[idx].order = newStages[idx - 1].order
+    newStages[idx - 1].order = temp
+    const sorted = newStages.sort((a, b) => a.order - b.order)
+    updateCase(caseData.id, { stages: sorted })
+  }
+
+  const moveStageDown = (idx: number) => {
+    if (idx >= caseData.stages.length - 1) return
+    const newStages = [...caseData.stages]
+    const temp = newStages[idx].order
+    newStages[idx].order = newStages[idx + 1].order
+    newStages[idx + 1].order = temp
+    const sorted = newStages.sort((a, b) => a.order - b.order)
+    updateCase(caseData.id, { stages: sorted })
+  }
+
   const handleStatusChange = (status: Case['status']) => {
-    updateCase(caseData.id, { status })
+    let stages = [...caseData.stages]
+    let currentStage = caseData.currentStage
+
+    if (status === '已结案') {
+      const hasVerdict = stages.some(s => s.name === '判决')
+      if (!hasVerdict) {
+        stages.push({
+          id: Date.now().toString(),
+          name: '判决',
+          startTime: new Date().toISOString().slice(0, 10),
+          notes: '案件结案',
+          order: stages.length + 1,
+        })
+      }
+      currentStage = '判决'
+    } else if (status === '已归档') {
+      currentStage = stages.length > 0 ? stages[stages.length - 1].name : caseData.currentStage
+    }
+
+    updateCase(caseData.id, { status, stages, currentStage })
     setStatusDropdown(false)
     addToast('案件状态已更新', 'success')
   }
@@ -223,53 +271,73 @@ export default function CaseDetail() {
           {caseData.stages.length === 0 ? (
             <p className="text-ivory-400 text-sm">暂无阶段记录</p>
           ) : (
-            caseData.stages.map((stage, idx) => {
-              const isActive = stage.order <= currentStageOrder
-              const isLast = idx === caseData.stages.length - 1
-              return (
-                <div key={stage.id} className="relative flex gap-4 pb-6">
-                  {!isLast && <div className="absolute left-[7px] top-6 bottom-0 w-0.5 bg-ivory-300" />}
-                  <div className="mt-1 flex-shrink-0">
-                    {isActive ? (
-                      <CheckCircle size={16} className="text-gold-500 fill-gold-200" />
-                    ) : (
-                      <Circle size={16} className="text-ivory-300" />
-                    )}
-                  </div>
-                  <div className="flex-1 bg-ivory-50 rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-medium ${isActive ? 'text-navy-500' : 'text-ivory-400'}`}>
-                        {stage.name}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button className="text-ivory-400 hover:text-navy-500 transition-colors" onClick={() => openEditStageModal(stage)}>
-                          <Edit size={12} />
-                        </button>
-                        <button className="text-ivory-400 hover:text-red-500 transition-colors" onClick={() => setDeleteStageTarget(stage)}>
-                          <Trash2 size={12} />
-                        </button>
+            (() => {
+              const sortedStages = [...caseData.stages].sort((a, b) => a.order - b.order)
+              return sortedStages.map((stage, idx) => {
+                const isActive = stage.order <= currentStageOrder
+                const isLast = idx === sortedStages.length - 1
+                return (
+                  <div key={stage.id} className="relative flex gap-4 pb-6">
+                    {!isLast && <div className="absolute left-[7px] top-6 bottom-0 w-0.5 bg-ivory-300" />}
+                    <div className="mt-1 flex-shrink-0">
+                      {isActive ? (
+                        <CheckCircle size={16} className="text-gold-500 fill-gold-200" />
+                      ) : (
+                        <Circle size={16} className="text-ivory-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 bg-ivory-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-medium ${isActive ? 'text-navy-500' : 'text-ivory-400'}`}>
+                          {stage.name}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button className="text-ivory-400 hover:text-navy-500" onClick={() => moveStageUp(idx)} disabled={idx === 0}>
+                            <ArrowUp size={12} />
+                          </button>
+                          <button className="text-ivory-400 hover:text-navy-500" onClick={() => moveStageDown(idx)} disabled={idx === sortedStages.length - 1}>
+                            <ArrowDown size={12} />
+                          </button>
+                          <button className="text-ivory-400 hover:text-navy-500 transition-colors" onClick={() => openEditStageModal(stage)}>
+                            <Edit size={12} />
+                          </button>
+                          <button className="text-ivory-400 hover:text-red-500 transition-colors" onClick={() => setDeleteStageTarget(stage)}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
+                      <div className="flex items-center gap-1 mt-1 text-xs text-ivory-400">
+                        <Clock size={12} /> {stage.startTime}
+                      </div>
+                      {stage.notes && <p className="text-xs text-ivory-500 mt-1">{stage.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-ivory-400">
-                      <Clock size={12} /> {stage.startTime}
-                    </div>
-                    {stage.notes && <p className="text-xs text-ivory-500 mt-1">{stage.notes}</p>}
                   </div>
-                </div>
-              )
-            })
+                )
+              })
+            })()
           )}
         </div>
       </div>
 
       <div className="card">
         <h2 className="section-title mb-4">关联文书</h2>
+        <div className="flex gap-2 mb-4">
+          <button className="btn-secondary text-xs" onClick={() => { const doc = generateDocument('t1', caseData.id); navigate(`/documents/edit/${doc.id}`); addToast('起诉状已生成', 'success') }}>
+            <FilePlus size={14} />生成起诉状
+          </button>
+          <button className="btn-secondary text-xs" onClick={() => { const doc = generateDocument('t2', caseData.id); navigate(`/documents/edit/${doc.id}`); addToast('答辩状已生成', 'success') }}>
+            <FilePlus size={14} />生成答辩状
+          </button>
+          <button className="btn-secondary text-xs" onClick={() => { const doc = generateDocument('t3', caseData.id); navigate(`/documents/edit/${doc.id}`); addToast('代理词已生成', 'success') }}>
+            <FilePlus size={14} />生成代理词
+          </button>
+        </div>
         {caseDocs.length === 0 ? (
           <p className="text-ivory-400 text-sm">暂无关联文书</p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {caseDocs.map((doc) => (
-              <div key={doc.id} className="flex items-start gap-3 p-3 bg-ivory-50 rounded-lg hover:bg-ivory-100 transition-colors cursor-pointer" onClick={() => navigate(`/documents/${doc.id}`)}>
+              <div key={doc.id} className="flex items-start gap-3 p-3 bg-ivory-50 rounded-lg hover:bg-ivory-100 transition-colors cursor-pointer" onClick={() => navigate(`/documents/edit/${doc.id}`)}>
                 <FileText size={16} className="text-gold-500 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-navy-500">{doc.title}</p>

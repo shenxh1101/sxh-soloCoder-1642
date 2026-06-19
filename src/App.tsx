@@ -1,6 +1,11 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import dayjs from 'dayjs'
 import Layout from "@/components/layout/Layout";
 import ToastContainer from "@/components/Toast";
+import { useScheduleStore } from '@/stores/scheduleStore'
+import { useCaseStore } from '@/stores/caseStore'
+import { addToast } from '@/stores/toastStore'
 import Dashboard from "@/pages/Dashboard";
 import ClientList from "@/pages/clients/ClientList";
 import ClientDetail from "@/pages/clients/ClientDetail";
@@ -14,10 +19,27 @@ import DocumentEditor from "@/pages/documents/DocumentEditor";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import StatisticsPage from "@/pages/statistics/StatisticsPage";
 
+function ReminderChecker() {
+  useEffect(() => {
+    const { checkReminders } = useScheduleStore.getState()
+    const { getCase } = useCaseStore.getState()
+    const reminders = checkReminders()
+    reminders.forEach((item) => {
+      const c = getCase(item.caseId)
+      addToast(
+        `日程提醒：${item.type} - ${c?.cause || '未知案件'} (${dayjs(item.dateTime).format('MM-DD HH:mm')})`,
+        'warning'
+      )
+    })
+  }, [])
+  return null
+}
+
 export default function App() {
   return (
     <Router>
       <Layout>
+        <ReminderChecker />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/clients" element={<ClientList />} />

@@ -52,7 +52,7 @@ export default function StatisticsPage() {
 
   const exportCaseSummary = () => {
     const BOM = '\uFEFF'
-    const headers = ['案号', '案由', '客户', '对方当事人', '承办律师', '立案日期', '当前阶段', '状态']
+    const headers = ['案号', '案由', '客户', '客户联系方式', '对方当事人', '承办律师', '律师联系方式', '立案日期', '当前阶段', '状态']
     const rows = cases.map((c) => {
       const client = clients.find((cl) => cl.id === c.clientId)
       const lawyer = useClientStore.getState().lawyers.find((l) => l.id === c.lawyerId)
@@ -60,8 +60,10 @@ export default function StatisticsPage() {
         c.caseNumber,
         c.cause,
         client?.name || '',
+        client?.contact || '',
         c.opposingParty,
         lawyer?.name || '',
+        lawyer?.phone || '',
         c.filingDate,
         c.currentStage,
         c.status,
@@ -76,9 +78,11 @@ export default function StatisticsPage() {
   const exportDocArchive = () => {
     const BOM = '\uFEFF'
     const headers = ['文书名称', '关联案件', '模板类型', '创建日期']
+    const { templates } = useDocumentStore.getState()
     const rows = documents.map((d) => {
       const c = getCase(d.caseId)
-      return [d.title, c?.caseNumber || '', d.templateId, d.createdAt]
+      const tpl = templates.find((t) => t.id === d.templateId)
+      return [d.title, c?.caseNumber || '', tpl?.name || '', d.createdAt]
     })
     const csvContent = BOM + headers.join(',') + '\n' + rows.map((r) => r.join(',')).join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })

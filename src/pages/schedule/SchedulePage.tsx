@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import dayjs from 'dayjs'
 import { Calendar, Plus, Edit, Trash2, ChevronLeft, ChevronRight, List, Grid, Clock, MapPin } from 'lucide-react'
 import type { ScheduleItem } from '@/types'
@@ -28,7 +28,7 @@ const emptyForm = (): Omit<ScheduleItem, 'id'> => ({
 })
 
 export default function SchedulePage() {
-  const { schedules, addSchedule, updateSchedule, deleteSchedule, checkReminders } = useScheduleStore()
+  const { schedules, addSchedule, updateSchedule, deleteSchedule } = useScheduleStore()
   const { cases, getCase } = useCaseStore()
 
   const [view, setView] = useState<'calendar' | 'list'>('calendar')
@@ -43,14 +43,6 @@ export default function SchedulePage() {
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string>('')
-
-  useEffect(() => {
-    const reminders = checkReminders()
-    reminders.forEach((item) => {
-      const c = getCase(item.caseId)
-      addToast(`日程提醒：${item.type} - ${c?.cause || '未知案件'} (${dayjs(item.dateTime).format('HH:mm')})`, 'warning')
-    })
-  }, [])
 
   const calendarDays = useMemo(() => {
     const start = currentMonth.startOf('month')
@@ -203,58 +195,72 @@ export default function SchedulePage() {
     )
   }
 
-  const renderList = () => (
-    <div className="card">
-      <div className="flex gap-3 mb-4">
-        <select className="input-field w-auto" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="全部">全部类型</option>
-          {SCHEDULE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select className="input-field w-auto" value={caseFilter} onChange={(e) => setCaseFilter(e.target.value)}>
-          <option value="">全部案件</option>
-          {cases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} - {c.cause}</option>)}
-        </select>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ivory-200">
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">日程类型</th>
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">关联案件</th>
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">日期时间</th>
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">地点</th>
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">备注</th>
-              <th className="text-left py-2 px-3 text-navy-300 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSchedules.map((item) => {
+  const renderList = () => {
+    const today = dayjs().format('YYYY-MM-DD')
+    const weekEnd = dayjs().add(7, 'day').format('YYYY-MM-DD')
+
+    const overdue = filteredSchedules.filter(s => dayjs(s.dateTime).format('YYYY-MM-DD') < today)
+    const todayItems = filteredSchedules.filter(s => dayjs(s.dateTime).format('YYYY-MM-DD') === today)
+    const upcoming = filteredSchedules.filter(s => {
+      const d = dayjs(s.dateTime).format('YYYY-MM-DD')
+      return d > today && d <= weekEnd
+    })
+    const later = filteredSchedules.filter(s => dayjs(s.dateTime).format('YYYY-MM-DD') > weekEnd)
+
+    const renderGroup = (label: string, items: ScheduleItem[], colorClass: string) => {
+      if (items.length === 0) return null
+      return (
+        <div key={label} className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`badge ${colorClass}`}>{label}</span>
+            <span className="text-xs text-ivory-400">{items.length}项</span>
+          </div>
+          <div className="space-y-2">
+            {items.sort((a, b) => dayjs(a.dateTime).valueOf() - dayjs(b.dateTime).valueOf()).map(item => {
               const c = getCase(item.caseId)
               return (
-                <tr key={item.id} className="border-b border-ivory-100 hover:bg-ivory-50">
-                  <td className="py-2 px-3"><span className={`badge ${TYPE_BADGE[item.type]}`}>{item.type}</span></td>
-                  <td className="py-2 px-3 text-navy-400">{c?.cause || '-'}</td>
-                  <td className="py-2 px-3 text-navy-400">{dayjs(item.dateTime).format('YYYY-MM-DD HH:mm')}</td>
-                  <td className="py-2 px-3 text-navy-400">{item.location}</td>
-                  <td className="py-2 px-3 text-ivory-400 max-w-[200px] truncate">{item.notes}</td>
-                  <td className="py-2 px-3">
-                    <div className="flex gap-1">
-                      <button className="p-1 text-navy-300 hover:text-gold-500" onClick={() => openEdit(item)}>
-                        <Edit size={14} />
-                      </button>
-                      <button className="p-1 text-navy-300 hover:text-red-500" onClick={() => { setDeleteId(item.id); setConfirmOpen(true) }}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-ivory-200 hover:bg-ivory-50 transition-colors">
+                  <span className={`badge ${TYPE_BADGE[item.type]}`}>{item.type}</span>
+                  <span className="text-sm text-navy-400 flex-1">{c?.cause || '-'}</span>
+                  <span className="text-sm text-navy-500 shrink-0">{dayjs(item.dateTime).format('MM-DD HH:mm')}</span>
+                  <span className="text-xs text-ivory-400 shrink-0">{item.location}</span>
+                  <span className="text-xs text-ivory-400 max-w-[120px] truncate">{item.notes}</span>
+                  <div className="flex gap-1 shrink-0">
+                    <button className="p-1 text-navy-300 hover:text-gold-500" onClick={() => openEdit(item)}>
+                      <Edit size={14} />
+                    </button>
+                    <button className="p-1 text-navy-300 hover:text-red-500" onClick={() => { setDeleteId(item.id); setConfirmOpen(true) }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="card">
+        <div className="flex gap-3 mb-4">
+          <select className="input-field w-auto" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="全部">全部类型</option>
+            {SCHEDULE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="input-field w-auto" value={caseFilter} onChange={(e) => setCaseFilter(e.target.value)}>
+            <option value="">全部案件</option>
+            {cases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} - {c.cause}</option>)}
+          </select>
+        </div>
+        {renderGroup('已过期', overdue, 'bg-red-50 text-red-700 border border-red-200')}
+        {renderGroup('今日', todayItems, 'bg-gold-50 text-gold-700 border border-gold-200')}
+        {renderGroup('未来7天', upcoming, 'bg-blue-50 text-blue-700 border border-blue-200')}
+        {renderGroup('更远', later, 'bg-gray-50 text-gray-600 border border-gray-200')}
+        {filteredSchedules.length === 0 && <div className="text-center py-8 text-ivory-400 text-sm">暂无日程</div>}
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderModal = () => (
     <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? '编辑日程' : '新增日程'}>
