@@ -126,6 +126,14 @@ export default function DocumentList() {
           <div className="space-y-6">
             {groupedDocuments.map(({ templateId, docs }) => {
               const template = templates.find((t) => t.id === templateId)
+              const sortedDocs = [...docs].sort((a, b) => {
+                const va = a.title.match(/\[v(\d+)\]/)
+                const vb = b.title.match(/\[v(\d+)\]/)
+                if (!va && !vb) return a.createdAt.localeCompare(b.createdAt)
+                if (!va) return -1
+                if (!vb) return 1
+                return parseInt(va[1]) - parseInt(vb[1])
+              })
               return (
                 <div key={templateId}>
                   <div className="flex items-center gap-3 mb-3">
@@ -145,7 +153,7 @@ export default function DocumentList() {
                       </tr>
                     </thead>
                     <tbody>
-                      {docs.map((doc) => {
+                      {sortedDocs.map((doc) => {
                         const caseData = getCase(doc.caseId)
                         const client = caseData ? getClient(caseData.clientId) : undefined
                         const docTemplate = templates.find((t) => t.id === doc.templateId)

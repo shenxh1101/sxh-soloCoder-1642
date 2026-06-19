@@ -15,6 +15,20 @@ export interface Stage {
   order: number
 }
 
+export interface ExecutionRecord {
+  id: string
+  date: string
+  description: string
+  amount: string
+  type: '回款' | '赔付' | '强制执行' | '其他'
+}
+
+export interface ArchiveCheckItem {
+  id: string
+  name: string
+  checked: boolean
+}
+
 export interface CaseReview {
   verdictResult: string
   recoveredAmount: string
@@ -33,8 +47,14 @@ export interface Case {
   status: '进行中' | '已结案' | '已归档'
   currentStage: string
   stages: Stage[]
-  createdAt: string
   review: CaseReview
+  execution: {
+    totalAmount: string
+    receivedAmount: string
+    records: ExecutionRecord[]
+  }
+  archiveChecklist: ArchiveCheckItem[]
+  createdAt: string
 }
 
 export interface DocumentTemplate {
@@ -77,6 +97,15 @@ export const CASE_STATUSES: Case['status'][] = ['进行中', '已结案', '已�
 
 export const SCHEDULE_TYPES: ScheduleItem['type'][] = ['开庭', '会见', '其他']
 
-export const DEFAULT_STAGES = ['立案', '证据交换', '开庭', '判决']
+export const DEFAULT_STAGES = ['立案', '证据交换', '开庭', '判决', '归档']
 
 export const VERDICT_RESULTS = ['胜诉', '败诉', '调解', '撤诉', '其他']
+
+export const ARCHIVE_ITEMS: Omit<ArchiveCheckItem, 'checked'>[] = [
+  { id: 'ai1', name: '委托手续' },
+  { id: 'ai2', name: '证据目录' },
+  { id: 'ai3', name: '裁判文书' },
+  { id: 'ai4', name: '送达材料' },
+  { id: 'ai5', name: '代理合同' },
+  { id: 'ai6', name: '收费凭证' },
+]

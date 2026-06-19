@@ -40,7 +40,7 @@ export const useScheduleStore = create<ScheduleStore>()(
         if (schedule.type === '开庭') {
           const caseStore = useCaseStore.getState()
           const caseItem = caseStore.getCase(schedule.caseId)
-          if (caseItem && !caseItem.stages.some((st) => st.name.startsWith('开庭'))) {
+          if (caseItem) {
             const date = new Date(schedule.dateTime)
             const stageName = `开庭(${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')})`
             caseStore.addStage(schedule.caseId, {
@@ -48,8 +48,9 @@ export const useScheduleStore = create<ScheduleStore>()(
               name: stageName,
               startTime: schedule.dateTime,
               notes: '',
-              order: caseItem.stages.length,
+              order: caseItem.stages.length + 1,
             })
+            caseStore.updateCase(schedule.caseId, { currentStage: stageName })
             stageAdded = true
           }
         }

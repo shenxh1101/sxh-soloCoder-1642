@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar, FilePlus, ArrowUp, ArrowDown, BookOpen, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar, FilePlus, ArrowUp, ArrowDown, BookOpen, AlertTriangle, DollarSign, ClipboardCheck } from 'lucide-react'
 import { useCaseStore } from '@/stores/caseStore'
 import { useClientStore } from '@/stores/clientStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
 import { useToastStore } from '@/stores/toastStore'
 import { CASE_STATUSES, DEFAULT_STAGES, VERDICT_RESULTS } from '@/types'
-import type { Case, Stage } from '@/types'
+import type { Case, Stage, ExecutionRecord } from '@/types'
 import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<Case['status'], string> = {
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage, setReview } = useCaseStore()
+  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage, setReview, addExecutionRecord, removeExecutionRecord, updateExecutionAmounts, toggleArchiveItem } = useCaseStore()
 
   const caseData = id ? getCase(id) : undefined
 
@@ -44,6 +44,10 @@ export default function CaseDetail() {
     executionMatters: '',
     archiveNotes: '',
   })
+  const [execModal, setExecModal] = useState(false)
+  const [execForm, setExecForm] = useState({ date: '', description: '', amount: '', type: '回款' as ExecutionRecord['type'] })
+  const [editingExecAmounts, setEditingExecAmounts] = useState(false)
+  const [execAmountsForm, setExecAmountsForm] = useState({ totalAmount: '', receivedAmount: '' })
 
   if (!caseData) {
     return (
@@ -61,6 +65,7 @@ export default function CaseDetail() {
   const caseDocs = documents.filter((d) => d.caseId === caseData.id)
   const caseSchedules = schedules.filter((s) => s.caseId === caseData.id)
   const currentStageOrder = caseData.stages.find((s) => s.name === caseData.currentStage)?.order ?? 0
+  const uncheckedCount = (caseData.archiveChecklist || []).filter(i => !i.checked).length
 
   const startEdit = () => {
     setEditForm({
@@ -511,6 +516,81 @@ export default function CaseDetail() {
           )}
         </div>
       )}
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="section-title flex items-center gap-2"><ClipboardCheck size={18} className="text-navy-500" />归档材料清单</h2>
+          {caseData.status === '已归档' && uncheckedCount === 0 && (
+            <span className="badge bg-green-50 text-green-700 border border-green-200">材料已齐</span>
+          )}
+          {uncheckedCount > 0 && (
+            <span className="badge bg-amber-50 text-amber-700 border border-amber-200">还有 {uncheckedCount} 项未完成</span>
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {(caseData.archiveChecklist || []).map((item) => (
+            <label key={item.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${item.checked ? 'bg-green-50 border-green-200' : 'bg-ivory-50 border-ivory-200 hover:border-ivory-300'}`}>
+              <input type="checkbox" checked={item.checked} onChange={() => toggleArchiveItem(caseData.id, item.id)} className="w-4 h-4 text-navy-500 rounded border-ivory-300 focus:ring-navy-300" />
+              <span className={`text-sm ${item.checked ? 'text-green-700 line-through' : 'text-navy-500'}`}>{item.name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {(caseData.status === '已结案' || caseData.status === '已归档') && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title flex items-center gap-2"><DollarSign size={18} className="text-navy-500" />执行进展</h2>
+            <div className="flex gap-2">
+              {!editingExecAmounts ? (
+                <button className="btn-secondary !px-2 !py-1" onClick={() => { setExecAmountsForm({ totalAmount: caseData.execution?.totalAmount || '', receivedAmount: caseData.execution?.receivedAmount || '' }); setEditingExecAmounts(true) }}><Edit size={14} /> 编辑金额</button>
+              ) : (
+                <button className="btn-primary !px-2 !py-1" onClick={() => { updateExecutionAmounts(caseData.id, execAmountsForm.totalAmount, execAmountsForm.receivedAmount); setEditingExecAmounts(false); addToast('金额已更新', 'success') }}><Save size={14} /> 保存</button>
+              )}
+              <button className="btn-secondary !px-2 !py-1" onClick={() => setExecModal(true)}><PlusCircle size={14} /> 添加记录</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {editingExecAmounts ? (
+              <>
+                <div><label className="label-text">总金额</label><input className="input-field" value={execAmountsForm.totalAmount} onChange={(e) => setExecAmountsForm({ ...execAmountsForm, totalAmount: e.target.value })} /></div>
+                <div><label className="label-text">已回款</label><input className="input-field" value={execAmountsForm.receivedAmount} onChange={(e) => setExecAmountsForm({ ...execAmountsForm, receivedAmount: e.target.value })} /></div>
+              </>
+            ) : (
+              <>
+                <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">总金额</span><p className="text-xl font-bold text-navy-500">{caseData.execution?.totalAmount || '-'}</p></div>
+                <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">已回款</span><p className="text-xl font-bold text-gold-500">{caseData.execution?.receivedAmount || '-'}</p></div>
+              </>
+            )}
+          </div>
+          {(caseData.execution?.records?.length ?? 0) > 0 ? (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-ivory-200"><th className="text-left py-2 text-navy-400 font-medium">日期</th><th className="text-left py-2 text-navy-400 font-medium">类型</th><th className="text-left py-2 text-navy-400 font-medium">描述</th><th className="text-left py-2 text-navy-400 font-medium">金额</th><th className="text-left py-2 text-navy-400 font-medium">操作</th></tr></thead>
+              <tbody>
+                {[...(caseData.execution?.records || [])].sort((a, b) => b.date.localeCompare(a.date)).map((r) => (
+                  <tr key={r.id} className="border-b border-ivory-100">
+                    <td className="py-2 text-navy-500">{r.date}</td>
+                    <td className="py-2"><span className={`badge ${r.type === '回款' ? 'bg-green-50 text-green-700 border-green-200' : r.type === '强制执行' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-ivory-50 text-ivory-500 border-ivory-300'}`}>{r.type}</span></td>
+                    <td className="py-2 text-navy-400">{r.description}</td>
+                    <td className="py-2 text-navy-500 font-medium">{r.amount}</td>
+                    <td className="py-2"><button className="text-ivory-400 hover:text-red-500" onClick={() => { removeExecutionRecord(caseData.id, r.id); addToast('记录已删除', 'success') }}><Trash2 size={14} /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="text-ivory-400 text-sm">暂无执行记录</p>}
+        </div>
+      )}
+
+      <Modal isOpen={execModal} onClose={() => setExecModal(false)} title="添加执行记录">
+        <div className="space-y-4">
+          <div><label className="label-text">日期</label><input type="date" className="input-field" value={execForm.date} onChange={(e) => setExecForm({ ...execForm, date: e.target.value })} /></div>
+          <div><label className="label-text">类型</label><select className="input-field" value={execForm.type} onChange={(e) => setExecForm({ ...execForm, type: e.target.value as ExecutionRecord['type'] })}><option value="回款">回款</option><option value="赔付">赔付</option><option value="强制执行">强制执行</option><option value="其他">其他</option></select></div>
+          <div><label className="label-text">描述</label><input className="input-field" value={execForm.description} onChange={(e) => setExecForm({ ...execForm, description: e.target.value })} /></div>
+          <div><label className="label-text">金额</label><input className="input-field" value={execForm.amount} onChange={(e) => setExecForm({ ...execForm, amount: e.target.value })} placeholder="请输入金额" /></div>
+          <div className="flex justify-end gap-3"><button className="btn-secondary" onClick={() => setExecModal(false)}>取消</button><button className="btn-primary" onClick={() => { if (!execForm.date || !execForm.amount) return; addExecutionRecord(caseData.id, { id: Date.now().toString(), ...execForm }); setExecModal(false); setExecForm({ date: '', description: '', amount: '', type: '回款' }); addToast('执行记录已添加', 'success') }}>确认添加</button></div>
+        </div>
+      </Modal>
 
       <Modal isOpen={stageModal} onClose={() => setStageModal(false)} title="添加阶段">
         <div className="space-y-4">

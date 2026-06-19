@@ -4,7 +4,7 @@ import { ArrowLeft, Save } from 'lucide-react'
 import { useCaseStore } from '@/stores/caseStore'
 import { useClientStore } from '@/stores/clientStore'
 import { useToastStore } from '@/stores/toastStore'
-import { CASE_STATUSES } from '@/types'
+import { CASE_STATUSES, ARCHIVE_ITEMS } from '@/types'
 import type { Case } from '@/types'
 
 export default function CaseForm() {
@@ -49,16 +49,38 @@ export default function CaseForm() {
       updateCase(existing.id, form)
       addToast('案件已更新', 'success')
     } else {
+      let stages = [{ id: Date.now().toString(), name: '立案', startTime: form.filingDate, notes: '已提交起诉状', order: 1 }]
+      let currentStage = '立案'
+
+      if (form.status === '已结案') {
+        stages = [
+          { id: `${Date.now()}-1`, name: '立案', startTime: form.filingDate, notes: '', order: 1 },
+          { id: `${Date.now()}-2`, name: '证据交换', startTime: '', notes: '', order: 2 },
+          { id: `${Date.now()}-3`, name: '开庭', startTime: '', notes: '', order: 3 },
+          { id: `${Date.now()}-4`, name: '判决', startTime: new Date().toISOString().slice(0, 10), notes: '案件结案', order: 4 },
+        ]
+        currentStage = '判决'
+      } else if (form.status === '已归档') {
+        stages = [
+          { id: `${Date.now()}-1`, name: '立案', startTime: form.filingDate, notes: '', order: 1 },
+          { id: `${Date.now()}-2`, name: '证据交换', startTime: '', notes: '', order: 2 },
+          { id: `${Date.now()}-3`, name: '开庭', startTime: '', notes: '', order: 3 },
+          { id: `${Date.now()}-4`, name: '判决', startTime: new Date().toISOString().slice(0, 10), notes: '案件结案', order: 4 },
+          { id: `${Date.now()}-5`, name: '归档', startTime: new Date().toISOString().slice(0, 10), notes: '案件归档', order: 5 },
+        ]
+        currentStage = '归档'
+      }
+
       const newCase: Case = {
         id: Date.now().toString(),
         caseNumber: generateCaseNumber(),
         ...form,
-        currentStage: '立案',
-        stages: [
-          { id: Date.now().toString(), name: '立案', startTime: form.filingDate, notes: '已提交起诉状', order: 1 },
-        ],
+        currentStage,
+        stages,
         createdAt: new Date().toISOString().slice(0, 10),
         review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
+        execution: { totalAmount: '', receivedAmount: '', records: [] },
+        archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
       }
       addCase(newCase)
       addToast('案件已创建', 'success')

@@ -71,9 +71,23 @@ export const useDocumentStore = create<DocumentState>()(
       duplicateDocument: (id) => {
         const doc = get().documents.find((d) => d.id === id)
         if (!doc) throw new Error('Document not found')
-        const versionMatch = doc.title.match(/\[v(\d+)\]/)
-        const nextVersion = versionMatch ? parseInt(versionMatch[1]) + 1 : 2
-        const baseTitle = doc.title.replace(/\[v\d+\]/, '').trim()
+        const sameGroup = get().documents.filter(
+          (d) => d.caseId === doc.caseId && d.templateId === doc.templateId
+        )
+        let maxVersion = 0
+        let unversionedCount = 0
+        sameGroup.forEach((d) => {
+          const match = d.title.match(/\[v(\d+)\]/)
+          if (match) {
+            const v = parseInt(match[1])
+            if (v > maxVersion) maxVersion = v
+          } else {
+            unversionedCount++
+          }
+        })
+        if (maxVersion === 0 && unversionedCount > 0) maxVersion = unversionedCount
+        const nextVersion = maxVersion + 1
+        const baseTitle = doc.title.replace(/\s*\[v\d+\]/, '').trim()
         const newDoc: Document = {
           ...doc,
           id: `d${Date.now()}`,
