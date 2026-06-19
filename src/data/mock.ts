@@ -28,6 +28,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs2', caseNumber: '2025-民-002', cause: '离婚纠纷', filingDate: '2025-04-05',
@@ -40,6 +41,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs3', caseNumber: '2025-商-001', cause: '商标侵权', filingDate: '2025-05-15',
@@ -51,6 +53,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs4', caseNumber: '2025-劳-001', cause: '劳动仲裁', filingDate: '2025-06-25',
@@ -65,6 +68,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '胜诉', recoveredAmount: '250,000元', executionMatters: '已申请强制执行，款项已到账', archiveNotes: '' },
     execution: { totalAmount: '250,000', receivedAmount: '250,000', records: [{ id: 'er1', date: '2025-09-15', description: '裁决款项到账', amount: '250,000', type: '回款' }] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs5', caseNumber: '2025-民-003', cause: '二手房买卖纠纷', filingDate: '2025-07-10',
@@ -77,6 +81,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs6', caseNumber: '2024-民-015', cause: '交通事故赔偿', filingDate: '2024-11-20',
@@ -91,6 +96,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '调解', recoveredAmount: '120,000元', executionMatters: '双方达成调解协议，已一次性履行完毕', archiveNotes: '' },
     execution: { totalAmount: '120,000', receivedAmount: '120,000', records: [{ id: 'er2', date: '2025-03-01', description: '调解协议一次性履行', amount: '120,000', type: '回款' }] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
   {
     id: 'cs7', caseNumber: '2025-刑-001', cause: '故意伤害', filingDate: '2025-01-15',
@@ -106,6 +112,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '胜诉', recoveredAmount: '', executionMatters: '被告人已认罪认罚，判处缓刑一年', archiveNotes: '案卷共5卷，已存入档案室第3柜第2层' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: true })),
+    archiveAudit: { archiveDate: '2025-12-01', cabinetLocation: 'A柜-03层', handler: '张明远' },
   },
   {
     id: 'cs8', caseNumber: '2025-商-002', cause: '合同纠纷', filingDate: '2025-08-01',
@@ -117,6 +124,7 @@ export const mockCases: Case[] = [
     review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
     execution: { totalAmount: '', receivedAmount: '', records: [] },
     archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+    archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
   },
 ]
 

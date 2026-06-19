@@ -81,6 +81,7 @@ export default function CaseForm() {
         review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
         execution: { totalAmount: '', receivedAmount: '', records: [] },
         archiveChecklist: ARCHIVE_ITEMS.map(item => ({ ...item, checked: false })),
+        archiveAudit: { archiveDate: '', cabinetLocation: '', handler: '' },
       }
       addCase(newCase)
       addToast('案件已创建', 'success')

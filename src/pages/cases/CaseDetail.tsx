@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<Case['status'], string> = {
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage, setReview, addExecutionRecord, removeExecutionRecord, updateExecutionAmounts, toggleArchiveItem } = useCaseStore()
+  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage, setReview, addExecutionRecord, removeExecutionRecord, updateExecutionAmounts, toggleArchiveItem, getExecutionStats, setArchiveAudit } = useCaseStore()
 
   const caseData = id ? getCase(id) : undefined
 
@@ -48,6 +48,8 @@ export default function CaseDetail() {
   const [execForm, setExecForm] = useState({ date: '', description: '', amount: '', type: '回款' as ExecutionRecord['type'] })
   const [editingExecAmounts, setEditingExecAmounts] = useState(false)
   const [execAmountsForm, setExecAmountsForm] = useState({ totalAmount: '', receivedAmount: '' })
+  const [editingArchiveAudit, setEditingArchiveAudit] = useState(false)
+  const [archiveAuditForm, setArchiveAuditForm] = useState({ archiveDate: '', cabinetLocation: '', handler: '' })
 
   if (!caseData) {
     return (
@@ -194,6 +196,12 @@ export default function CaseDetail() {
       }
       currentStage = '判决'
     } else if (status === '已归档') {
+      const unchecked = (caseData.archiveChecklist || []).filter(i => !i.checked).length
+      if (unchecked > 0) {
+        addToast(`归档材料不完整，还有 ${unchecked} 项未完成`, 'warning')
+        setStatusDropdown(false)
+        return
+      }
       const hasVerdict = stages.some(s => s.name === '判决')
       if (!hasVerdict) {
         stages.push({
@@ -537,32 +545,78 @@ export default function CaseDetail() {
         </div>
       </div>
 
+      {caseData.status === '已归档' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title flex items-center gap-2"><ClipboardCheck size={18} className="text-navy-500" />归档信息</h2>
+            {!editingArchiveAudit ? (
+              <button className="btn-secondary !px-2 !py-1" onClick={() => { setArchiveAuditForm({ archiveDate: caseData.archiveAudit?.archiveDate || '', cabinetLocation: caseData.archiveAudit?.cabinetLocation || '', handler: caseData.archiveAudit?.handler || '' }); setEditingArchiveAudit(true) }}><Edit size={14} /> 编辑</button>
+            ) : (
+              <button className="btn-primary !px-2 !py-1" onClick={() => { setArchiveAudit(caseData.id, archiveAuditForm); setEditingArchiveAudit(false); addToast('归档信息已更新', 'success') }}><Save size={14} /> 保存</button>
+            )}
+          </div>
+          {editingArchiveAudit ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div><label className="label-text">归档日期</label><input type="date" className="input-field" value={archiveAuditForm.archiveDate} onChange={(e) => setArchiveAuditForm({ ...archiveAuditForm, archiveDate: e.target.value })} /></div>
+              <div><label className="label-text">档案柜位置</label><input className="input-field" value={archiveAuditForm.cabinetLocation} onChange={(e) => setArchiveAuditForm({ ...archiveAuditForm, cabinetLocation: e.target.value })} placeholder="如：A柜-03层" /></div>
+              <div><label className="label-text">经办人</label><input className="input-field" value={archiveAuditForm.handler} onChange={(e) => setArchiveAuditForm({ ...archiveAuditForm, handler: e.target.value })} placeholder="归档经办人" /></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div><span className="label-text">归档日期</span><p className="text-sm text-navy-500">{caseData.archiveAudit?.archiveDate || '-'}</p></div>
+              <div><span className="label-text">档案柜位置</span><p className="text-sm text-navy-500">{caseData.archiveAudit?.cabinetLocation || '-'}</p></div>
+              <div><span className="label-text">经办人</span><p className="text-sm text-navy-500">{caseData.archiveAudit?.handler || '-'}</p></div>
+            </div>
+          )}
+        </div>
+      )}
+
       {(caseData.status === '已结案' || caseData.status === '已归档') && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title flex items-center gap-2"><DollarSign size={18} className="text-navy-500" />执行进展</h2>
             <div className="flex gap-2">
               {!editingExecAmounts ? (
-                <button className="btn-secondary !px-2 !py-1" onClick={() => { setExecAmountsForm({ totalAmount: caseData.execution?.totalAmount || '', receivedAmount: caseData.execution?.receivedAmount || '' }); setEditingExecAmounts(true) }}><Edit size={14} /> 编辑金额</button>
+                <button className="btn-secondary !px-2 !py-1" onClick={() => { setExecAmountsForm({ totalAmount: caseData.execution?.totalAmount || '', receivedAmount: '' }); setEditingExecAmounts(true) }}><Edit size={14} /> 设置总金额</button>
               ) : (
-                <button className="btn-primary !px-2 !py-1" onClick={() => { updateExecutionAmounts(caseData.id, execAmountsForm.totalAmount, execAmountsForm.receivedAmount); setEditingExecAmounts(false); addToast('金额已更新', 'success') }}><Save size={14} /> 保存</button>
+                <button className="btn-primary !px-2 !py-1" onClick={() => { updateExecutionAmounts(caseData.id, execAmountsForm.totalAmount, ''); setEditingExecAmounts(false); addToast('金额已更新', 'success') }}><Save size={14} /> 保存</button>
               )}
               <button className="btn-secondary !px-2 !py-1" onClick={() => setExecModal(true)}><PlusCircle size={14} /> 添加记录</button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            {editingExecAmounts ? (
+          {(() => {
+            const stats = getExecutionStats(caseData.id)
+            return (
               <>
-                <div><label className="label-text">总金额</label><input className="input-field" value={execAmountsForm.totalAmount} onChange={(e) => setExecAmountsForm({ ...execAmountsForm, totalAmount: e.target.value })} /></div>
-                <div><label className="label-text">已回款</label><input className="input-field" value={execAmountsForm.receivedAmount} onChange={(e) => setExecAmountsForm({ ...execAmountsForm, receivedAmount: e.target.value })} /></div>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  {editingExecAmounts ? (
+                    <>
+                      <div className="bg-ivory-50 rounded-lg p-4"><label className="label-text">标的总额</label><input className="input-field" value={execAmountsForm.totalAmount} onChange={(e) => setExecAmountsForm({ ...execAmountsForm, totalAmount: e.target.value })} placeholder="请输入金额" /></div>
+                      <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">已收金额（自动汇总）</span><p className="text-xl font-bold text-gold-500">{stats.received > 0 ? stats.received.toLocaleString() : '-'}</p></div>
+                      <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">未收金额</span><p className="text-xl font-bold text-red-500">{stats.unreceived > 0 ? stats.unreceived.toLocaleString() : '-'}</p></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">标的总额</span><p className="text-xl font-bold text-navy-500">{stats.total > 0 ? stats.total.toLocaleString() : '-'}</p></div>
+                      <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">已收金额（自动汇总）</span><p className="text-xl font-bold text-gold-500">{stats.received > 0 ? stats.received.toLocaleString() : '-'}</p></div>
+                      <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">未收金额</span><p className="text-xl font-bold text-red-500">{stats.unreceived > 0 ? stats.unreceived.toLocaleString() : '-'}</p></div>
+                    </>
+                  )}
+                </div>
+                {stats.total > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-navy-400">执行完成比例</span>
+                      <span className="text-xs font-medium text-navy-500">{(stats.ratio * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-ivory-200 rounded-full h-2.5">
+                      <div className="bg-gold-500 h-2.5 rounded-full transition-all" style={{ width: `${stats.ratio * 100}%` }} />
+                    </div>
+                  </div>
+                )}
               </>
-            ) : (
-              <>
-                <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">总金额</span><p className="text-xl font-bold text-navy-500">{caseData.execution?.totalAmount || '-'}</p></div>
-                <div className="bg-ivory-50 rounded-lg p-4"><span className="label-text">已回款</span><p className="text-xl font-bold text-gold-500">{caseData.execution?.receivedAmount || '-'}</p></div>
-              </>
-            )}
-          </div>
+            )
+          })()}
           {(caseData.execution?.records?.length ?? 0) > 0 ? (
             <table className="w-full text-sm">
               <thead><tr className="border-b border-ivory-200"><th className="text-left py-2 text-navy-400 font-medium">日期</th><th className="text-left py-2 text-navy-400 font-medium">类型</th><th className="text-left py-2 text-navy-400 font-medium">描述</th><th className="text-left py-2 text-navy-400 font-medium">金额</th><th className="text-left py-2 text-navy-400 font-medium">操作</th></tr></thead>

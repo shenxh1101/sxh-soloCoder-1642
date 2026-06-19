@@ -110,6 +110,7 @@ export default function CaseList() {
                 <th className="text-left py-3 font-medium">承办律师</th>
                 <th className="text-left py-3 font-medium">当前阶段</th>
                 <th className="text-left py-3 font-medium">状态</th>
+                <th className="text-left py-3 font-medium">归档信息</th>
                 <th className="text-right py-3 font-medium">操作</th>
               </tr>
             </thead>
@@ -126,6 +127,15 @@ export default function CaseList() {
                     <td className="py-3">{c.currentStage}</td>
                     <td className="py-3">
                       <span className={STATUS_BADGE[c.status]}>{c.status}</span>
+                    </td>
+                    <td className="py-3 text-xs">
+                      {c.status === '已归档' ? (
+                        c.archiveAudit?.cabinetLocation ? (
+                          <span className="text-navy-500">{c.archiveAudit.cabinetLocation}</span>
+                        ) : (
+                          <span className="text-amber-500">未填写</span>
+                        )
+                      ) : '-'}
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2">

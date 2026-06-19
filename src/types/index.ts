@@ -29,11 +29,23 @@ export interface ArchiveCheckItem {
   checked: boolean
 }
 
+export interface ArchiveAudit {
+  archiveDate: string
+  cabinetLocation: string
+  handler: string
+}
+
 export interface CaseReview {
   verdictResult: string
   recoveredAmount: string
   executionMatters: string
   archiveNotes: string
+}
+
+export interface ArchiveAudit {
+  archiveDate: string
+  cabinetLocation: string
+  handler: string
 }
 
 export interface Case {
@@ -54,6 +66,7 @@ export interface Case {
     records: ExecutionRecord[]
   }
   archiveChecklist: ArchiveCheckItem[]
+  archiveAudit: ArchiveAudit
   createdAt: string
 }
 

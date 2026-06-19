@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts'
 import { Download, FileText, FolderOpen, Scale, DollarSign, AlertCircle } from 'lucide-react'
 import { saveAs } from 'file-saver'
@@ -33,6 +33,8 @@ export default function StatisticsPage() {
   const { cases, getCase } = useCaseStore()
   const { clients } = useClientStore()
   const { documents } = useDocumentStore()
+  const [lawyerFilter, setLawyerFilter] = useState('')
+  const [incompleteLawyerFilter, setIncompleteLawyerFilter] = useState('')
 
   const caseTypeData = useMemo(() => {
     const map: Record<string, number> = {}
@@ -62,6 +64,52 @@ export default function StatisticsPage() {
     })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }, [cases])
+
+  const lawyers = useClientStore.getState().lawyers
+
+  const lawyerStats = useMemo(() => {
+    const closedCases = cases.filter(c => c.status === '已结案' || c.status === '已归档')
+    const filtered = lawyerFilter ? closedCases.filter(c => c.lawyerId === lawyerFilter) : closedCases
+    const map: Record<string, { lawyerId: string; name: string; caseCount: number; total: number; received: number }> = {}
+    filtered.forEach(c => {
+      if (!map[c.lawyerId]) {
+        const l = lawyers.find(law => law.id === c.lawyerId)
+        map[c.lawyerId] = { lawyerId: c.lawyerId, name: l?.name || '未知', caseCount: 0, total: 0, received: 0 }
+      }
+      map[c.lawyerId].caseCount++
+      const total = parseFloat(c.execution?.totalAmount?.replace(/[^0-9.]/g, '') || '0') || 0
+      const received = parseFloat(c.execution?.receivedAmount?.replace(/[^0-9.]/g, '') || '0') || 0
+      map[c.lawyerId].total += total
+      map[c.lawyerId].received += received
+    })
+    return Object.values(map).map(ls => ({
+      ...ls,
+      unreceived: Math.max(0, ls.total - ls.received),
+      ratio: ls.total > 0 ? Math.min(1, ls.received / ls.total) : 0,
+    })).sort((a, b) => b.unreceived - a.unreceived)
+  }, [cases, lawyerFilter, lawyers])
+
+  const typeStats = useMemo(() => {
+    const closedCases = cases.filter(c => c.status === '已结案' || c.status === '已归档')
+    const map: Record<string, { type: string; caseCount: number; total: number; received: number }> = {}
+    closedCases.forEach(c => {
+      const client = clients.find(cl => cl.id === c.clientId)
+      const caseType = client?.caseType || '其他'
+      if (!map[caseType]) {
+        map[caseType] = { type: caseType, caseCount: 0, total: 0, received: 0 }
+      }
+      map[caseType].caseCount++
+      const total = parseFloat(c.execution?.totalAmount?.replace(/[^0-9.]/g, '') || '0') || 0
+      const received = parseFloat(c.execution?.receivedAmount?.replace(/[^0-9.]/g, '') || '0') || 0
+      map[caseType].total += total
+      map[caseType].received += received
+    })
+    return Object.values(map).map(ts => ({
+      ...ts,
+      unreceived: Math.max(0, ts.total - ts.received),
+      ratio: ts.total > 0 ? Math.min(1, ts.received / ts.total) : 0,
+    })).sort((a, b) => b.unreceived - a.unreceived)
+  }, [cases, clients])
 
   const summaryCards = useMemo(() => {
     return Object.entries(STATUS_COLORS).map(([status, color]) => {
@@ -266,30 +314,50 @@ export default function StatisticsPage() {
               </div>
               {incomplete.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium text-navy-400 mb-3 flex items-center gap-2">
-                    <AlertCircle size={14} className="text-amber-500" />
-                    未执行完毕案件
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-navy-400 flex items-center gap-2">
+                      <AlertCircle size={14} className="text-amber-500" />
+                      未执行完毕案件
+                    </h3>
+                    <select className="input-field w-auto text-xs" value={incompleteLawyerFilter} onChange={(e) => setIncompleteLawyerFilter(e.target.value)}>
+                      <option value="">全部律师</option>
+                      {lawyers.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-ivory-200">
                         <th className="text-left py-2 text-navy-400 font-medium">案号</th>
                         <th className="text-left py-2 text-navy-400 font-medium">案由</th>
+                        <th className="text-left py-2 text-navy-400 font-medium">承办律师</th>
                         <th className="text-left py-2 text-navy-400 font-medium">总金额</th>
-                        <th className="text-left py-2 text-navy-400 font-medium">已回款</th>
+                        <th className="text-left py-2 text-navy-400 font-medium">已收</th>
+                        <th className="text-left py-2 text-navy-400 font-medium">未收</th>
                         <th className="text-left py-2 text-navy-400 font-medium">状态</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {incomplete.map(c => (
-                        <tr key={c.id} className="border-b border-ivory-100">
-                          <td className="py-2 text-navy-500">{c.caseNumber}</td>
-                          <td className="py-2 text-navy-400">{c.cause}</td>
-                          <td className="py-2 text-navy-500">{c.execution.totalAmount}</td>
-                          <td className="py-2 text-gold-500 font-medium">{c.execution.receivedAmount}</td>
-                          <td className="py-2"><span className={c.status === '已结案' ? 'badge-active' : 'badge-archived'}>{c.status}</span></td>
-                        </tr>
-                      ))}
+                      {incomplete.filter(c => !incompleteLawyerFilter || c.lawyerId === incompleteLawyerFilter).sort((a, b) => {
+                        const ua = parseFloat(a.execution?.totalAmount?.replace(/[^0-9.]/g, '') || '0') - parseFloat(a.execution?.receivedAmount?.replace(/[^0-9.]/g, '') || '0')
+                        const ub = parseFloat(b.execution?.totalAmount?.replace(/[^0-9.]/g, '') || '0') - parseFloat(b.execution?.receivedAmount?.replace(/[^0-9.]/g, '') || '0')
+                        return ub - ua
+                      }).map(c => {
+                        const lawyer = lawyers.find(l => l.id === c.lawyerId)
+                        const total = parseFloat(c.execution.totalAmount.replace(/[^0-9.]/g, '')) || 0
+                        const received = parseFloat(c.execution.receivedAmount.replace(/[^0-9.]/g, '')) || 0
+                        const unreceived = Math.max(0, total - received)
+                        return (
+                          <tr key={c.id} className="border-b border-ivory-100">
+                            <td className="py-2 text-navy-500">{c.caseNumber}</td>
+                            <td className="py-2 text-navy-400">{c.cause}</td>
+                            <td className="py-2 text-navy-500">{lawyer?.name || '-'}</td>
+                            <td className="py-2 text-navy-500">{c.execution.totalAmount}</td>
+                            <td className="py-2 text-gold-500 font-medium">{received > 0 ? received.toLocaleString() : '-'}</td>
+                            <td className="py-2 text-red-500 font-medium">{unreceived > 0 ? unreceived.toLocaleString() : '-'}</td>
+                            <td className="py-2"><span className={c.status === '已结案' ? 'badge-active' : 'badge-archived'}>{c.status}</span></td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -297,6 +365,88 @@ export default function StatisticsPage() {
             </div>
           )
         })()}
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="section-title flex items-center gap-2">
+            <Scale size={18} className="text-navy-500" />
+            律师执行回款
+          </h2>
+          <select className="input-field w-auto" value={lawyerFilter} onChange={(e) => setLawyerFilter(e.target.value)}>
+            <option value="">全部律师</option>
+            {lawyers.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-ivory-200">
+              <th className="text-left py-2 text-navy-400 font-medium">律师</th>
+              <th className="text-left py-2 text-navy-400 font-medium">案件数</th>
+              <th className="text-left py-2 text-navy-400 font-medium">应收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">已收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">未收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">完成率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lawyerStats.map((ls) => (
+              <tr key={ls.lawyerId} className="border-b border-ivory-100">
+                <td className="py-2 text-navy-500 font-medium">{ls.name}</td>
+                <td className="py-2 text-navy-500">{ls.caseCount}</td>
+                <td className="py-2 text-navy-500">{ls.total > 0 ? ls.total.toLocaleString() : '-'}</td>
+                <td className="py-2 text-gold-500 font-medium">{ls.received > 0 ? ls.received.toLocaleString() : '-'}</td>
+                <td className="py-2 text-red-500 font-medium">{ls.unreceived > 0 ? ls.unreceived.toLocaleString() : '-'}</td>
+                <td className="py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 bg-ivory-200 rounded-full h-2">
+                      <div className="bg-gold-500 h-2 rounded-full" style={{ width: `${ls.ratio * 100}%` }} />
+                    </div>
+                    <span className="text-xs text-navy-400">{(ls.ratio * 100).toFixed(0)}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title mb-4 flex items-center gap-2">
+          <DollarSign size={18} className="text-navy-500" />
+          案件类型执行回款
+        </h2>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-ivory-200">
+              <th className="text-left py-2 text-navy-400 font-medium">案件类型</th>
+              <th className="text-left py-2 text-navy-400 font-medium">案件数</th>
+              <th className="text-left py-2 text-navy-400 font-medium">应收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">已收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">未收总额</th>
+              <th className="text-left py-2 text-navy-400 font-medium">完成率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {typeStats.map((ts) => (
+              <tr key={ts.type} className="border-b border-ivory-100">
+                <td className="py-2 text-navy-500 font-medium">{ts.type}</td>
+                <td className="py-2 text-navy-500">{ts.caseCount}</td>
+                <td className="py-2 text-navy-500">{ts.total > 0 ? ts.total.toLocaleString() : '-'}</td>
+                <td className="py-2 text-gold-500 font-medium">{ts.received > 0 ? ts.received.toLocaleString() : '-'}</td>
+                <td className="py-2 text-red-500 font-medium">{ts.unreceived > 0 ? ts.unreceived.toLocaleString() : '-'}</td>
+                <td className="py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 bg-ivory-200 rounded-full h-2">
+                      <div className="bg-gold-500 h-2 rounded-full" style={{ width: `${ts.ratio * 100}%` }} />
+                    </div>
+                    <span className="text-xs text-navy-400">{(ts.ratio * 100).toFixed(0)}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
