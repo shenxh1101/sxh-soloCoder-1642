@@ -118,7 +118,7 @@ export default function CaseList() {
                 const client = getClient(c.clientId)
                 const lawyer = lawyers.find((l) => l.id === c.lawyerId)
                 return (
-                  <tr key={c.id} className="border-b border-ivory-100 hover:bg-ivory-50 transition-colors">
+                  <tr key={c.id} className={`border-b border-ivory-100 hover:bg-ivory-50 transition-colors ${c.status === '已归档' ? 'opacity-75' : ''}`}>
                     <td className="py-3 font-medium text-navy-500">{c.caseNumber}</td>
                     <td className="py-3">{c.cause}</td>
                     <td className="py-3">{client?.name ?? '-'}</td>

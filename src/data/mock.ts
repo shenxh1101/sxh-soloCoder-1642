@@ -24,6 +24,7 @@ export const mockCases: Case[] = [
       { id: 's1-3', name: '开庭', startTime: '2025-06-10', notes: '第一次开庭审理', order: 3 },
     ],
     createdAt: '2025-03-20',
+    review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
   },
   {
     id: 'cs2', caseNumber: '2025-民-002', cause: '离婚纠纷', filingDate: '2025-04-05',
@@ -33,6 +34,7 @@ export const mockCases: Case[] = [
       { id: 's2-2', name: '证据交换', startTime: '2025-05-12', notes: '提交共同财产清单', order: 2 },
     ],
     createdAt: '2025-04-05',
+    review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
   },
   {
     id: 'cs3', caseNumber: '2025-商-001', cause: '商标侵权', filingDate: '2025-05-15',
@@ -41,6 +43,7 @@ export const mockCases: Case[] = [
       { id: 's3-1', name: '立案', startTime: '2025-05-15', notes: '已提交侵权证据', order: 1 },
     ],
     createdAt: '2025-05-15',
+    review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
   },
   {
     id: 'cs4', caseNumber: '2025-劳-001', cause: '劳动仲裁', filingDate: '2025-06-25',
@@ -52,6 +55,7 @@ export const mockCases: Case[] = [
       { id: 's4-4', name: '判决', startTime: '2025-09-01', notes: '裁决支持申请人主张', order: 4 },
     ],
     createdAt: '2025-06-25',
+    review: { verdictResult: '胜诉', recoveredAmount: '250,000元', executionMatters: '已申请强制执行，款项已到账', archiveNotes: '' },
   },
   {
     id: 'cs5', caseNumber: '2025-民-003', cause: '二手房买卖纠纷', filingDate: '2025-07-10',
@@ -61,6 +65,7 @@ export const mockCases: Case[] = [
       { id: 's5-2', name: '证据交换', startTime: '2025-08-20', notes: '提交购房合同及付款凭证', order: 2 },
     ],
     createdAt: '2025-07-10',
+    review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
   },
   {
     id: 'cs6', caseNumber: '2024-民-015', cause: '交通事故赔偿', filingDate: '2024-11-20',
@@ -72,17 +77,20 @@ export const mockCases: Case[] = [
       { id: 's6-4', name: '判决', startTime: '2025-02-05', notes: '判决赔偿12万元', order: 4 },
     ],
     createdAt: '2024-11-20',
+    review: { verdictResult: '调解', recoveredAmount: '120,000元', executionMatters: '双方达成调解协议，已一次性履行完毕', archiveNotes: '' },
   },
   {
     id: 'cs7', caseNumber: '2025-刑-001', cause: '故意伤害', filingDate: '2025-01-15',
-    opposingParty: '李某', lawyerId: 'l3', clientId: 'c1', status: '已归档', currentStage: '判决',
+    opposingParty: '李某', lawyerId: 'l3', clientId: 'c1', status: '已归档', currentStage: '归档',
     stages: [
       { id: 's7-1', name: '立案', startTime: '2025-01-15', notes: '接受委托', order: 1 },
       { id: 's7-2', name: '证据交换', startTime: '2025-02-20', notes: '阅卷完成', order: 2 },
       { id: 's7-3', name: '开庭', startTime: '2025-03-25', notes: '辩护意见已提交', order: 3 },
       { id: 's7-4', name: '判决', startTime: '2025-04-15', notes: '缓刑判决', order: 4 },
+      { id: 's7-5', name: '归档', startTime: '2025-05-20', notes: '案卷材料已整理归档', order: 5 },
     ],
     createdAt: '2025-01-15',
+    review: { verdictResult: '胜诉', recoveredAmount: '', executionMatters: '被告人已认罪认罚，判处缓刑一年', archiveNotes: '案卷共5卷，已存入档案室第3柜第2层' },
   },
   {
     id: 'cs8', caseNumber: '2025-商-002', cause: '合同纠纷', filingDate: '2025-08-01',
@@ -91,6 +99,7 @@ export const mockCases: Case[] = [
       { id: 's8-1', name: '立案', startTime: '2025-08-01', notes: '已提交起诉状', order: 1 },
     ],
     createdAt: '2025-08-01',
+    review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
   },
 ]
 

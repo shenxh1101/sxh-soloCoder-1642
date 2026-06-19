@@ -2,14 +2,16 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ScheduleItem } from '@/types'
 import { mockSchedules } from '@/data/mock'
+import { useCaseStore } from '@/stores/caseStore'
 
 interface ScheduleStore {
   schedules: ScheduleItem[]
   getUpcoming: (days: number) => ScheduleItem[]
-  addSchedule: (item: Omit<ScheduleItem, 'id'>) => void
+  addSchedule: (item: Omit<ScheduleItem, 'id'>) => ScheduleItem
   updateSchedule: (id: string, data: Partial<ScheduleItem>) => void
   deleteSchedule: (id: string) => void
   checkReminders: () => ScheduleItem[]
+  addScheduleWithStage: (item: Omit<ScheduleItem, 'id'>) => { schedule: ScheduleItem; stageAdded: boolean }
 }
 
 export const useScheduleStore = create<ScheduleStore>()(
@@ -25,9 +27,34 @@ export const useScheduleStore = create<ScheduleStore>()(
           return d >= now && d <= end
         })
       },
-      addSchedule: (item) => set((s) => ({
-        schedules: [...s.schedules, { ...item, id: crypto.randomUUID() }],
-      })),
+      addSchedule: (item) => {
+        const schedule = { ...item, id: crypto.randomUUID() }
+        set((s) => ({
+          schedules: [...s.schedules, schedule],
+        }))
+        return schedule
+      },
+      addScheduleWithStage: (item) => {
+        const schedule = get().addSchedule(item)
+        let stageAdded = false
+        if (schedule.type === '开庭') {
+          const caseStore = useCaseStore.getState()
+          const caseItem = caseStore.getCase(schedule.caseId)
+          if (caseItem && !caseItem.stages.some((st) => st.name.startsWith('开庭'))) {
+            const date = new Date(schedule.dateTime)
+            const stageName = `开庭(${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')})`
+            caseStore.addStage(schedule.caseId, {
+              id: crypto.randomUUID(),
+              name: stageName,
+              startTime: schedule.dateTime,
+              notes: '',
+              order: caseItem.stages.length,
+            })
+            stageAdded = true
+          }
+        }
+        return { schedule, stageAdded }
+      },
       updateSchedule: (id, data) => set((s) => ({
         schedules: s.schedules.map((sc) => (sc.id === id ? { ...sc, ...data } : sc)),
       })),

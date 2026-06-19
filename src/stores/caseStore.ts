@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Case, Stage } from '@/types'
+import type { Case, Stage, CaseReview } from '@/types'
 import { mockCases } from '@/data/mock'
 
 interface CaseState {
@@ -12,6 +12,7 @@ interface CaseState {
   addStage: (caseId: string, stage: Stage) => void
   updateStage: (caseId: string, stageId: string, data: Partial<Stage>) => void
   deleteStage: (caseId: string, stageId: string) => void
+  setReview: (caseId: string, review: Partial<CaseReview>) => void
 }
 
 export const useCaseStore = create<CaseState>()(
@@ -19,7 +20,7 @@ export const useCaseStore = create<CaseState>()(
     (set, get) => ({
       cases: mockCases,
       getCase: (id) => get().cases.find((c) => c.id === id),
-      addCase: (c) => set((state) => ({ cases: [...state.cases, c] })),
+      addCase: (c) => set((state) => ({ cases: [...state.cases, { ...c, review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' } }] })),
       updateCase: (id, data) =>
         set((state) => ({
           cases: state.cases.map((c) => (c.id === id ? { ...c, ...data } : c)),
@@ -44,6 +45,12 @@ export const useCaseStore = create<CaseState>()(
         set((state) => ({
           cases: state.cases.map((c) =>
             c.id === caseId ? { ...c, stages: c.stages.filter((st) => st.id !== stageId) } : c
+          ),
+        })),
+      setReview: (caseId, review) =>
+        set((state) => ({
+          cases: state.cases.map((c) =>
+            c.id === caseId ? { ...c, review: { ...c.review, ...review } } : c
           ),
         })),
     }),

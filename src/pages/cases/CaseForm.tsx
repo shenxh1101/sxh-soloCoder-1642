@@ -58,6 +58,7 @@ export default function CaseForm() {
           { id: Date.now().toString(), name: '立案', startTime: form.filingDate, notes: '已提交起诉状', order: 1 },
         ],
         createdAt: new Date().toISOString().slice(0, 10),
+        review: { verdictResult: '', recoveredAmount: '', executionMatters: '', archiveNotes: '' },
       }
       addCase(newCase)
       addToast('案件已创建', 'success')

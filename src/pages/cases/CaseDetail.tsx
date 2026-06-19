@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar, FilePlus, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Edit, Save, Trash2, PlusCircle, Clock, ChevronDown, Circle, CheckCircle, FileText, Calendar, FilePlus, ArrowUp, ArrowDown, BookOpen, AlertTriangle } from 'lucide-react'
 import { useCaseStore } from '@/stores/caseStore'
 import { useClientStore } from '@/stores/clientStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useScheduleStore } from '@/stores/scheduleStore'
 import { useToastStore } from '@/stores/toastStore'
-import { CASE_STATUSES, DEFAULT_STAGES } from '@/types'
+import { CASE_STATUSES, DEFAULT_STAGES, VERDICT_RESULTS } from '@/types'
 import type { Case, Stage } from '@/types'
 import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<Case['status'], string> = {
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage } = useCaseStore()
+  const { getCase, updateCase, deleteCase, addStage, updateStage, deleteStage, setReview } = useCaseStore()
 
   const caseData = id ? getCase(id) : undefined
 
@@ -37,6 +37,13 @@ export default function CaseDetail() {
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteStageTarget, setDeleteStageTarget] = useState<Stage | null>(null)
   const [stageForm, setStageForm] = useState({ name: '', startTime: '', notes: '' })
+  const [editingReview, setEditingReview] = useState(false)
+  const [reviewForm, setReviewForm] = useState({
+    verdictResult: '',
+    recoveredAmount: '',
+    executionMatters: '',
+    archiveNotes: '',
+  })
 
   if (!caseData) {
     return (
@@ -70,6 +77,22 @@ export default function CaseDetail() {
     updateCase(caseData.id, editForm)
     setEditing(false)
     addToast('案件信息已更新', 'success')
+  }
+
+  const startEditReview = () => {
+    setReviewForm({
+      verdictResult: caseData.review?.verdictResult ?? '',
+      recoveredAmount: caseData.review?.recoveredAmount ?? '',
+      executionMatters: caseData.review?.executionMatters ?? '',
+      archiveNotes: caseData.review?.archiveNotes ?? '',
+    })
+    setEditingReview(true)
+  }
+
+  const saveEditReview = () => {
+    setReview(caseData.id, reviewForm)
+    setEditingReview(false)
+    addToast('办案复盘已更新', 'success')
   }
 
   const handleDeleteCase = () => {
@@ -166,7 +189,27 @@ export default function CaseDetail() {
       }
       currentStage = '判决'
     } else if (status === '已归档') {
-      currentStage = stages.length > 0 ? stages[stages.length - 1].name : caseData.currentStage
+      const hasVerdict = stages.some(s => s.name === '判决')
+      if (!hasVerdict) {
+        stages.push({
+          id: Date.now().toString(),
+          name: '判决',
+          startTime: new Date().toISOString().slice(0, 10),
+          notes: '案件结案',
+          order: stages.length + 1,
+        })
+      }
+      const hasArchive = stages.some(s => s.name === '归档')
+      if (!hasArchive) {
+        stages.push({
+          id: (Date.now() + 1).toString(),
+          name: '归档',
+          startTime: new Date().toISOString().slice(0, 10),
+          notes: '案件归档',
+          order: stages.length + 1,
+        })
+      }
+      currentStage = '归档'
     }
 
     updateCase(caseData.id, { status, stages, currentStage })
@@ -183,6 +226,9 @@ export default function CaseDetail() {
           </button>
           <h1 className="page-title">{caseData.caseNumber}</h1>
           <span className={STATUS_BADGE[caseData.status]}>{caseData.status}</span>
+          {caseData.status === '已归档' && (
+            <span className="badge bg-ivory-100 text-ivory-600 border border-ivory-300">流程已完成</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -355,17 +401,116 @@ export default function CaseDetail() {
           <p className="text-ivory-400 text-sm">暂无关联日程</p>
         ) : (
           <div className="space-y-2">
-            {caseSchedules.map((sch) => (
-              <div key={sch.id} className="flex items-center gap-3 p-3 bg-ivory-50 rounded-lg hover:bg-ivory-100 transition-colors cursor-pointer" onClick={() => navigate('/schedule')}>
-                <Calendar size={16} className="text-navy-400 flex-shrink-0" />
-                <span className="badge bg-navy-50 text-navy-500 border border-navy-200">{sch.type}</span>
-                <span className="text-sm text-navy-500">{sch.dateTime}</span>
-                <span className="text-xs text-ivory-400">{sch.location}</span>
-              </div>
-            ))}
+            {[...caseSchedules].sort((a, b) => a.dateTime.localeCompare(b.dateTime)).map((sch) => {
+              const isPastHearing = sch.type === '开庭' && new Date(sch.dateTime) < new Date()
+              const needsNotes = isPastHearing && (!sch.notes || sch.notes.length < 10)
+              return (
+                <div key={sch.id} className="flex items-center gap-3 p-3 bg-ivory-50 rounded-lg hover:bg-ivory-100 transition-colors cursor-pointer" onClick={() => navigate('/schedule')}>
+                  <Calendar size={16} className="text-navy-400 flex-shrink-0" />
+                  <span className="badge bg-navy-50 text-navy-500 border border-navy-200">{sch.type}</span>
+                  <span className="text-sm text-navy-500">{sch.dateTime}</span>
+                  <span className="text-xs text-ivory-400">{sch.location}</span>
+                  {needsNotes && (
+                    <span className="badge bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1 ml-auto">
+                      <AlertTriangle size={12} /> 请填写庭审备注
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
+
+      {(caseData.status === '已结案' || caseData.status === '已归档') && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title flex items-center gap-2">
+              <BookOpen size={18} className="text-navy-500" />
+              办案复盘
+            </h2>
+            {!editingReview ? (
+              <button className="btn-secondary !px-2 !py-1" onClick={startEditReview}>
+                <Edit size={14} /> 编辑
+              </button>
+            ) : (
+              <button className="btn-primary !px-2 !py-1" onClick={saveEditReview}>
+                <Save size={14} /> 保存
+              </button>
+            )}
+          </div>
+          {editingReview ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label-text">裁判结果</label>
+                  <select
+                    className="input-field"
+                    value={reviewForm.verdictResult}
+                    onChange={(e) => setReviewForm({ ...reviewForm, verdictResult: e.target.value })}
+                  >
+                    <option value="">请选择</option>
+                    {VERDICT_RESULTS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-text">回款/赔付金额</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={reviewForm.recoveredAmount}
+                    onChange={(e) => setReviewForm({ ...reviewForm, recoveredAmount: e.target.value })}
+                    placeholder="请输入金额"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label-text">后续执行事项</label>
+                <textarea
+                  className="input-field min-h-[80px]"
+                  rows={3}
+                  value={reviewForm.executionMatters}
+                  onChange={(e) => setReviewForm({ ...reviewForm, executionMatters: e.target.value })}
+                  placeholder="请输入后续执行事项"
+                />
+              </div>
+              <div>
+                <label className="label-text">归档备注</label>
+                <textarea
+                  className="input-field min-h-[60px]"
+                  rows={2}
+                  value={reviewForm.archiveNotes}
+                  onChange={(e) => setReviewForm({ ...reviewForm, archiveNotes: e.target.value })}
+                  placeholder="请输入归档备注"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="label-text">裁判结果</span>
+                  <p className="text-sm text-navy-500">{caseData.review?.verdictResult || '-'}</p>
+                </div>
+                <div>
+                  <span className="label-text">回款/赔付金额</span>
+                  <p className="text-sm text-navy-500">{caseData.review?.recoveredAmount || '-'}</p>
+                </div>
+              </div>
+              <div>
+                <span className="label-text">后续执行事项</span>
+                <p className="text-sm text-navy-500">{caseData.review?.executionMatters || '-'}</p>
+              </div>
+              <div>
+                <span className="label-text">归档备注</span>
+                <p className="text-sm text-navy-500">{caseData.review?.archiveNotes || '-'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Modal isOpen={stageModal} onClose={() => setStageModal(false)} title="添加阶段">
         <div className="space-y-4">

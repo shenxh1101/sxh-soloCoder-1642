@@ -15,6 +15,13 @@ export interface Stage {
   order: number
 }
 
+export interface CaseReview {
+  verdictResult: string
+  recoveredAmount: string
+  executionMatters: string
+  archiveNotes: string
+}
+
 export interface Case {
   id: string
   caseNumber: string
@@ -27,6 +34,7 @@ export interface Case {
   currentStage: string
   stages: Stage[]
   createdAt: string
+  review: CaseReview
 }
 
 export interface DocumentTemplate {
@@ -70,3 +78,5 @@ export const CASE_STATUSES: Case['status'][] = ['进行中', '已结案', '已�
 export const SCHEDULE_TYPES: ScheduleItem['type'][] = ['开庭', '会见', '其他']
 
 export const DEFAULT_STAGES = ['立案', '证据交换', '开庭', '判决']
+
+export const VERDICT_RESULTS = ['胜诉', '败诉', '调解', '撤诉', '其他']

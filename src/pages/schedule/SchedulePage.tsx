@@ -28,7 +28,7 @@ const emptyForm = (): Omit<ScheduleItem, 'id'> => ({
 })
 
 export default function SchedulePage() {
-  const { schedules, addSchedule, updateSchedule, deleteSchedule } = useScheduleStore()
+  const { schedules, addSchedule, addScheduleWithStage, updateSchedule, deleteSchedule } = useScheduleStore()
   const { cases, getCase } = useCaseStore()
 
   const [view, setView] = useState<'calendar' | 'list'>('calendar')
@@ -40,6 +40,7 @@ export default function SchedulePage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [syncToStage, setSyncToStage] = useState(true)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string>('')
@@ -68,6 +69,7 @@ export default function SchedulePage() {
   const openAdd = () => {
     setEditingItem(null)
     setForm(emptyForm())
+    setSyncToStage(true)
     setModalOpen(true)
   }
 
@@ -93,8 +95,17 @@ export default function SchedulePage() {
       updateSchedule(editingItem.id, form)
       addToast('日程已更新', 'success')
     } else {
-      addSchedule({ ...form, reminded: false })
-      addToast('日程已添加', 'success')
+      if (form.type === '开庭' && syncToStage) {
+        const result = addScheduleWithStage({ ...form, reminded: false })
+        if (result.stageAdded) {
+          addToast('日程已添加，已同步到案件进度', 'success')
+        } else {
+          addToast('日程已添加', 'success')
+        }
+      } else {
+        addSchedule({ ...form, reminded: false })
+        addToast('日程已添加', 'success')
+      }
     }
     setModalOpen(false)
   }
@@ -274,7 +285,11 @@ export default function SchedulePage() {
         </div>
         <div>
           <label className="label-text">日程类型</label>
-          <select className="input-field" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ScheduleItem['type'] })}>
+          <select className="input-field" value={form.type} onChange={(e) => {
+            const type = e.target.value as ScheduleItem['type']
+            setForm({ ...form, type })
+            setSyncToStage(type === '开庭')
+          }}>
             {SCHEDULE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
@@ -290,6 +305,18 @@ export default function SchedulePage() {
           <label className="label-text">备注</label>
           <textarea className="input-field" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
+        {form.type === '开庭' && !editingItem && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="syncToStage"
+              checked={syncToStage}
+              onChange={(e) => setSyncToStage(e.target.checked)}
+              className="w-4 h-4 text-navy-500 border-ivory-300 rounded focus:ring-navy-500"
+            />
+            <label htmlFor="syncToStage" className="text-sm text-navy-400">同步到案件进度</label>
+          </div>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <button className="btn-secondary" onClick={() => setModalOpen(false)}>取消</button>
           <button className="btn-primary" onClick={handleSubmit}>

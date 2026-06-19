@@ -7,11 +7,20 @@ import { useCaseStore } from '@/stores/caseStore'
 import { useClientStore } from '@/stores/clientStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { addToast } from '@/stores/toastStore'
+import { VERDICT_RESULTS } from '@/types'
 
 const STATUS_COLORS: Record<string, string> = {
   '进行中': '#2563EB',
   '已结案': '#16A34A',
   '已归档': '#9C9285',
+}
+
+const VERDICT_COLORS: Record<string, string> = {
+  '胜诉': '#16A34A',
+  '败诉': '#DC2626',
+  '调解': '#C9A96E',
+  '撤诉': '#9CA3AF',
+  '其他': '#576A8D',
 }
 
 const STATUS_ICONS: Record<string, typeof Scale> = {
@@ -43,6 +52,17 @@ export default function StatisticsPage() {
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }, [cases])
 
+  const verdictData = useMemo(() => {
+    const map: Record<string, number> = {}
+    cases.forEach((c) => {
+      if (c.review?.verdictResult) {
+        const result = VERDICT_RESULTS.includes(c.review.verdictResult) ? c.review.verdictResult : '其他'
+        map[result] = (map[result] || 0) + 1
+      }
+    })
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+  }, [cases])
+
   const summaryCards = useMemo(() => {
     return Object.entries(STATUS_COLORS).map(([status, color]) => {
       const count = cases.filter((c) => c.status === status).length
@@ -52,7 +72,7 @@ export default function StatisticsPage() {
 
   const exportCaseSummary = () => {
     const BOM = '\uFEFF'
-    const headers = ['案号', '案由', '客户', '客户联系方式', '对方当事人', '承办律师', '律师联系方式', '立案日期', '当前阶段', '状态']
+    const headers = ['案号', '案由', '客户', '客户联系方式', '对方当事人', '承办律师', '律师联系方式', '立案日期', '当前阶段', '状态', '裁判结果', '回款金额', '执行事项', '归档备注']
     const rows = cases.map((c) => {
       const client = clients.find((cl) => cl.id === c.clientId)
       const lawyer = useClientStore.getState().lawyers.find((l) => l.id === c.lawyerId)
@@ -67,6 +87,10 @@ export default function StatisticsPage() {
         c.filingDate,
         c.currentStage,
         c.status,
+        c.review?.verdictResult || '',
+        c.review?.recoveredAmount || '',
+        c.review?.executionMatters || '',
+        c.review?.archiveNotes || '',
       ]
     })
     const csvContent = BOM + headers.join(',') + '\n' + rows.map((r) => r.join(',')).join('\n')
@@ -161,6 +185,36 @@ export default function StatisticsPage() {
               >
                 {statusData.map((entry) => (
                   <Cell key={entry.name} fill={STATUS_COLORS[entry.name]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E8E3DE', borderRadius: '8px' }}
+              />
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                formatter={(value: string) => <span className="text-sm text-navy-400">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2 className="section-title mb-4">裁判结果统计</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={verdictData}
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                innerRadius={50}
+                dataKey="value"
+                label={renderCustomLabel}
+                labelLine={{ stroke: '#9C9285' }}
+              >
+                {verdictData.map((entry) => (
+                  <Cell key={entry.name} fill={VERDICT_COLORS[entry.name]} />
                 ))}
               </Pie>
               <Tooltip

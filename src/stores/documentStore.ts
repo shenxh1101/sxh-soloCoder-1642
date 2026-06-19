@@ -11,6 +11,7 @@ interface DocumentState {
   generateDocument: (templateId: string, caseId: string) => Document
   updateDocument: (id: string, data: Partial<Document>) => void
   deleteDocument: (id: string) => void
+  duplicateDocument: (id: string) => Document
 }
 
 function fillTemplate(content: string, vars: Record<string, string>) {
@@ -67,6 +68,21 @@ export const useDocumentStore = create<DocumentState>()(
         set((state) => ({
           documents: state.documents.filter((d) => d.id !== id),
         })),
+      duplicateDocument: (id) => {
+        const doc = get().documents.find((d) => d.id === id)
+        if (!doc) throw new Error('Document not found')
+        const versionMatch = doc.title.match(/\[v(\d+)\]/)
+        const nextVersion = versionMatch ? parseInt(versionMatch[1]) + 1 : 2
+        const baseTitle = doc.title.replace(/\[v\d+\]/, '').trim()
+        const newDoc: Document = {
+          ...doc,
+          id: `d${Date.now()}`,
+          title: `${baseTitle} [v${nextVersion}]`,
+          createdAt: new Date().toISOString().split('T')[0],
+        }
+        set((state) => ({ documents: [...state.documents, newDoc] }))
+        return newDoc
+      },
     }),
     { name: 'law-firm-documents' }
   )
